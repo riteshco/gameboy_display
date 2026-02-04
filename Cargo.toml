@@ -1,0 +1,8 @@
+[package]
+name = "display"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+gb_core = { path = "../gb_core" }
+sdl2 = "0.38.0"
