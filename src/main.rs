@@ -1,3 +1,5 @@
+mod debug;
+
 use gb_core::utils::{DISPLAY_BUFFER, SCREEN_HEIGHT, SCREEN_WIDTH};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
@@ -9,10 +11,13 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::rect::Rect;
 use sdl2::pixels::Color;
+use std::process::exit;
 
 const SCALE: u32 = 3;
 const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
 const WINDOW_HEIGHT: u32 = (SCREEN_HEIGHT as u32) * SCALE;
+
+use crate::debug::Debugger;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -21,6 +26,7 @@ fn main() {
         return;
     }
 
+    let mut gbd = Debugger::new();
     let mut gb = Cpu::new();
     let filename = &args[1];
     let rom = load_rom(filename);
@@ -39,10 +45,13 @@ fn main() {
         for event in events.poll_iter() {
             match event {
                 Event::Quit { .. } | Event::KeyDown{keycode: Some(Keycode::Escape), ..} => break 'gameloop,
+                Event::KeyDown {keycode: Some(Keycode::Space), ..} => {
+                    gbd.set_debugging(true);
+                },
                 _ => {}
             }
         }
-        while !gb.tick() {}
+        tick_until_draw(&mut gb, &mut gbd);
         let frame = gb.render();
         draw_screen(&frame, &mut canvas);
     }
@@ -67,4 +76,23 @@ fn load_rom(path: &str) -> Vec<u8> {
 
     f.read_to_end(&mut buffer).expect("Error reading rom file");
     buffer
+}
+
+fn tick_until_draw(gb: &mut Cpu, gbd: &mut Debugger) {
+    loop {
+        let render = gb.tick();
+
+        gbd.check_breakpoints(gb.get_pc());
+        if gbd.is_debugging() {
+            gbd.print_info();
+            let quit = gbd.debugloop(gb);
+            if quit {
+                exit(0);
+            }
+        }
+
+        if render {
+            break;
+        }
+    }
 }
