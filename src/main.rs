@@ -12,6 +12,7 @@ use sdl2::video::Window;
 use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use std::process::exit;
+use gb_core::io::Button;
 
 const SCALE: u32 = 3;
 const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
@@ -47,6 +48,16 @@ fn main() {
                 Event::Quit { .. } | Event::KeyDown{keycode: Some(Keycode::Escape), ..} => break 'gameloop,
                 Event::KeyDown {keycode: Some(Keycode::Space), ..} => {
                     gbd.set_debugging(true);
+                },
+                Event::KeyDown{keycode: Some(keycode), ..} => {
+                    if let Some(button) = key2btn(keycode) {
+                        gb.press_button(button, true);
+                    }
+                },
+                Event::KeyUp{keycode: Some(keycode), ..} => {
+                    if let Some(button) = key2btn(keycode) {
+                        gb.press_button(button, false);
+                    }
                 },
                 _ => {}
             }
@@ -94,5 +105,19 @@ fn tick_until_draw(gb: &mut Cpu, gbd: &mut Debugger) {
         if render {
             break;
         }
+    }
+}
+
+fn key2btn(key: Keycode) -> Option<Button> {
+    match key {
+        Keycode::Down =>        { Some(Button::Down)   },
+        Keycode::Up =>          { Some(Button::Up)     },
+        Keycode::Left =>        { Some(Button::Left)   },
+        Keycode::Right =>       { Some(Button::Right)  },
+        Keycode::Return =>      { Some(Button::Start)  },
+        Keycode::Backspace =>   { Some(Button::Select) },
+        Keycode::X =>           { Some(Button::A)      },
+        Keycode::Z =>           { Some(Button::B)      },
+        _ =>                    { None                 },
     }
 }
