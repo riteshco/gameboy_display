@@ -4,7 +4,7 @@ use gb_core::utils::{DISPLAY_BUFFER, SCREEN_HEIGHT, SCREEN_WIDTH};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use std::env;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Read;
 use gb_core::cpu::Cpu;
 use sdl2::render::Canvas;
@@ -13,6 +13,7 @@ use sdl2::rect::Rect;
 use sdl2::pixels::Color;
 use std::process::exit;
 use gb_core::io::Button;
+use std::io::prelude::*;
 
 const SCALE: u32 = 3;
 const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
@@ -32,10 +33,12 @@ fn main() {
     let filename = &args[1];
     let rom = load_rom(filename);
     gb.load_rom(&rom);
+    load_battery_save(&mut gb, filename);
+    let title = gb.get_title();
 
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
-    let window = video_subsystem.window("My GameBoy Emulator", WINDOW_WIDTH, WINDOW_HEIGHT)
+    let window = video_subsystem.window(title, WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered().opengl().build().unwrap();
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     canvas.clear();
@@ -62,7 +65,7 @@ fn main() {
                 _ => {}
             }
         }
-        tick_until_draw(&mut gb, &mut gbd);
+        tick_until_draw(&mut gb, &mut gbd, filename);
         let frame = gb.render();
         draw_screen(&frame, &mut canvas);
     }
@@ -89,7 +92,7 @@ fn load_rom(path: &str) -> Vec<u8> {
     buffer
 }
 
-fn tick_until_draw(gb: &mut Cpu, gbd: &mut Debugger) {
+fn tick_until_draw(gb: &mut Cpu, gbd: &mut Debugger, gamename: &str) {
     loop {
         let render = gb.tick();
 
@@ -104,6 +107,36 @@ fn tick_until_draw(gb: &mut Cpu, gbd: &mut Debugger) {
 
         if render {
             break;
+        }
+    }
+
+    if gb.is_battery_dirty() {
+        write_battery_save(gb, &gamename);
+    }
+}
+
+fn write_battery_save(gb: &mut Cpu, gamename: &str) {
+    if gb.has_battery() {
+        let battery_data = gb.get_battery_data();
+        let mut filename = gamename.to_owned();
+        filename.push_str(".sav");
+
+        let mut file = OpenOptions::new().write(true).create(true).open(filename).expect("Error openeing save file");
+        file.write(battery_data).unwrap();
+        gb.clean_battery();
+    }
+}
+
+fn load_battery_save(gb: &mut Cpu, gamename: &str) {
+    if gb.has_battery() {
+        let mut battery_data: Vec<u8> = Vec::new();
+        let mut filename = gamename.to_owned();
+        filename.push_str(".dav");
+
+        let f = OpenOptions::new().read(true).open(filename);
+        if f.is_ok() {
+            f.unwrap().read_to_end(&mut battery_data).expect("Error reading save file");
+            gb.set_battery_data(&battery_data);
         }
     }
 }
