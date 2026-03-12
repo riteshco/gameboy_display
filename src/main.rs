@@ -131,7 +131,7 @@ fn load_battery_save(gb: &mut Cpu, gamename: &str) {
     if gb.has_battery() {
         let mut battery_data: Vec<u8> = Vec::new();
         let mut filename = gamename.to_owned();
-        filename.push_str(".dav");
+        filename.push_str(".sav");
 
         let f = OpenOptions::new().read(true).open(filename);
         if f.is_ok() {
